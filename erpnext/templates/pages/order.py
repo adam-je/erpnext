@@ -24,8 +24,21 @@ def get_context(context):
 
 	context.enabled_checkout = frappe.get_doc("Shopping Cart Settings").enable_checkout
 
+	default_print_format = frappe.db.get_value('Property Setter', dict(property='default_print_format', doc_type=frappe.form_dict.doctype), "value")
+	if default_print_format:
+		context.print_format = default_print_format
+	else:
+		context.print_format = "Standard"
+
 	if not frappe.has_website_permission(context.doc):
 		frappe.throw(_("Not Permitted"), frappe.PermissionError)
+	
+	# check for the loyalty program of the customer
+	customer_loyalty_program = frappe.db.get_value("Customer", context.doc.customer, "loyalty_program")	
+	if customer_loyalty_program:
+		from erpnext.accounts.doctype.loyalty_program.loyalty_program import get_loyalty_program_details_with_points
+		loyalty_program_details = get_loyalty_program_details_with_points(context.doc.customer, customer_loyalty_program)
+		context.available_loyalty_points = int(loyalty_program_details.get("loyalty_points"))
 
 def get_attachments(dt, dn):
         return frappe.get_all("File",

@@ -10,6 +10,7 @@ def execute():
 	frappe.reload_doc("core", "doctype", "domain")
 	frappe.reload_doc("core", "doctype", "domain_settings")
 	frappe.reload_doc("core", "doctype", "has_domain")
+	frappe.reload_doc("core", "doctype", "role")
 
 	for domain in ("Distribution", "Manufacturing", "Retail", "Services", "Education"):
 		if not frappe.db.exists({"doctype": "Domain", "domain": domain}):
@@ -21,7 +22,7 @@ def execute():
 	condition = ""
 	company = erpnext.get_default_company()
 	if company:
-		condition = " and name='{0}'".format(frappe.db.escape(company))
+		condition = " and name={0}".format(frappe.db.escape(company))
 
 	domains = frappe.db.sql_list("select distinct domain from `tabCompany` where domain != 'Other' {0}".format(condition))
 

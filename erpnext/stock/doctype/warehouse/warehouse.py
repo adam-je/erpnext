@@ -3,17 +3,18 @@
 
 from __future__ import unicode_literals
 import frappe, erpnext
-from frappe.utils import cint, validate_email_add
+from frappe.utils import cint, nowdate
 from frappe import throw, _
 from frappe.utils.nestedset import NestedSet
 from erpnext.stock import get_warehouse_account
+from frappe.contacts.address_and_contact import load_address_and_contact
 
 class Warehouse(NestedSet):
 	nsm_parent_field = 'parent_warehouse'
 
 	def autoname(self):
 		if self.company:
-			suffix = " - " + frappe.db.get_value("Company", self.company, "abbr")
+			suffix = " - " + frappe.get_cached_value('Company',  self.company,  "abbr")
 			if not self.warehouse_name.endswith(suffix):
 				self.name = self.warehouse_name + suffix
 		else:
@@ -21,14 +22,13 @@ class Warehouse(NestedSet):
 
 	def onload(self):
 		'''load account name for General Ledger Report'''
-		account = self.account or get_warehouse_account(self.name, self.company)
+		if self.company and cint(frappe.db.get_value("Company", self.company, "enable_perpetual_inventory")):
+			account = self.account or get_warehouse_account(self)
 
-		if account:
-			self.set_onload('account', account)
+			if account:
+				self.set_onload('account', account)
+		load_address_and_contact(self)
 
-	def validate(self):
-		if self.email_id:
-			validate_email_add(self.email_id, True)
 
 	def on_update(self):
 		self.update_nsm_model()
@@ -57,13 +57,15 @@ class Warehouse(NestedSet):
 
 	def check_if_sle_exists(self):
 		return frappe.db.sql("""select name from `tabStock Ledger Entry`
-			where warehouse = %s""", self.name)
+			where warehouse = %s limit 1""", self.name)
 
 	def check_if_child_exists(self):
 		return frappe.db.sql("""select name from `tabWarehouse`
-			where parent_warehouse = %s""", self.name)
+			where parent_warehouse = %s limit 1""", self.name)
 
 	def before_rename(self, old_name, new_name, merge=False):
+		super(Warehouse, self).before_rename(old_name, new_name, merge)
+
 		# Add company abbr if not provided
 		new_warehouse = erpnext.encode_company_abbr(new_name, self.company)
 
@@ -77,19 +79,21 @@ class Warehouse(NestedSet):
 		return new_warehouse
 
 	def after_rename(self, old_name, new_name, merge=False):
+		super(Warehouse, self).after_rename(old_name, new_name, merge)
+
 		new_warehouse_name = self.get_new_warehouse_name_without_abbr(new_name)
 		self.db_set("warehouse_name", new_warehouse_name)
-				
+
 		if merge:
 			self.recalculate_bin_qty(new_name)
-			
+
 	def get_new_warehouse_name_without_abbr(self, name):
-		company_abbr = frappe.db.get_value("Company", self.company, "abbr")
+		company_abbr = frappe.get_cached_value('Company',  self.company,  "abbr")
 		parts = name.rsplit(" - ", 1)
-		
+
 		if parts[-1].lower() == company_abbr.lower():
 			name = parts[0]
-			
+
 		return name
 
 	def recalculate_bin_qty(self, new_name):
@@ -135,29 +139,26 @@ class Warehouse(NestedSet):
 			return 1
 
 @frappe.whitelist()
-def get_children():
-	from erpnext.stock.utils import get_stock_value_on
-	doctype = frappe.local.form_dict.get('doctype')
-	company = frappe.local.form_dict.get('company')
+def get_children(doctype, parent=None, company=None, is_root=False):
+	from erpnext.stock.utils import get_stock_value_from_bin
 
-	parent_field = 'parent_' + doctype.lower().replace(' ', '_')
-	parent = frappe.form_dict.get("parent") or ""
-
-	if parent == "Warehouses":
+	if is_root:
 		parent = ""
 
-	warehouses = frappe.db.sql("""select name as value,
-		is_group as expandable
-		from `tab{doctype}`
-		where docstatus < 2
-		and ifnull(`{parent_field}`,'') = %s
-		and (`company` = %s or company is null or company = '')
-		order by name""".format(doctype=frappe.db.escape(doctype),
-		parent_field=frappe.db.escape(parent_field)), (parent, company), as_dict=1)
+	fields = ['name as value', 'is_group as expandable']
+	filters = [
+		['docstatus', '<', '2'],
+		['ifnull(`parent_warehouse`, "")', '=', parent],
+		['company', 'in', (company, None,'')]
+	]
+
+	warehouses = frappe.get_list(doctype, fields=fields, filters=filters, order_by='name')
 
 	# return warehouses
 	for wh in warehouses:
-		wh["balance"] = get_stock_value_on(warehouse=wh.value)
+		wh["balance"] = get_stock_value_from_bin(warehouse=wh.value)
+		if company:
+			wh["company_currency"] = frappe.db.get_value('Company', company, 'default_currency')
 	return warehouses
 
 @frappe.whitelist()
@@ -174,3 +175,28 @@ def add_node():
 def convert_to_group_or_ledger():
 	args = frappe.form_dict
 	return frappe.get_doc("Warehouse", args.docname).convert_to_group_or_ledger()
+
+def get_child_warehouses(warehouse):
+	lft, rgt = frappe.get_cached_value("Warehouse", warehouse, ["lft", "rgt"])
+
+	return frappe.db.sql_list("""select name from `tabWarehouse`
+		where lft >= %s and rgt <= %s""", (lft, rgt))
+
+def get_warehouses_based_on_account(account, company=None):
+	warehouses = []
+	for d in frappe.get_all("Warehouse", fields = ["name", "is_group"],
+		filters = {"account": account}):
+		if d.is_group:
+			warehouses.extend(get_child_warehouses(d.name))
+		else:
+			warehouses.append(d.name)
+
+	if (not warehouses and company and
+		frappe.get_cached_value("Company", company, "default_inventory_account") == account):
+		warehouses = [d.name for d in frappe.get_all("Warehouse", filters={'is_group': 0})]
+
+	if not warehouses:
+		frappe.throw(_("Warehouse not found against the account {0}")
+			.format(account))
+
+	return warehouses

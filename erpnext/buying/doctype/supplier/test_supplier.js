@@ -7,14 +7,13 @@ QUnit.test("test: supplier", function(assert) {
 		() => {
 			return frappe.tests.make('Supplier', [
 				{supplier_name: 'Test Supplier'},
-				{supplier_type: 'Hardware'},
+				{supplier_group: 'Hardware'},
 				{country: 'India'},
 				{default_currency: 'INR'},
-				{credit_days_based_on: 'Fixed Days'},
 				{accounts: [
 					[
-						{'company': "Test Company"},
-						{'account': "Creditors - TC"}
+						{'company': "For Testing"},
+						{'account': "Creditors - FT"}
 					]]
 				}
 			]);
@@ -56,7 +55,8 @@ QUnit.test("test: supplier", function(assert) {
 		() => frappe.click_button('New Contact'),
 		() => {
 			return frappe.tests.set_form_values(cur_frm, [
-				{first_name: "Contact 3"}
+				{first_name: "Contact 3"},
+				{email_id: "test@supplier.com"}
 			]);
 		},
 		() => cur_frm.save(),
@@ -66,9 +66,9 @@ QUnit.test("test: supplier", function(assert) {
 
 		() => {
 			assert.ok(cur_frm.doc.supplier_name == 'Test Supplier', "Name correct");
-			assert.ok(cur_frm.doc.supplier_type == 'Hardware', "Type correct");
+			assert.ok(cur_frm.doc.supplier_group == 'Hardware', "Type correct");
 			assert.ok(cur_frm.doc.default_currency == 'INR', "Currency correct");
-			assert.ok(cur_frm.doc.accounts[0].account == 'Creditors - '+frappe.get_abbr('Test Company'), " Account Head abbr correct");
+			assert.ok(cur_frm.doc.accounts[0].account == 'Creditors - '+frappe.get_abbr('For Testing'), " Account Head abbr correct");
 			assert.ok($('.address-box:nth-child(3) p').text().includes('Shipping City 3'), "Address correct");
 			assert.ok($('.col-sm-6+ .col-sm-6 .h6').text().includes('Contact 3'), "Contact correct");
 		},

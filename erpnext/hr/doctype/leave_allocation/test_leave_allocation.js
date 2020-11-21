@@ -10,8 +10,12 @@ QUnit.test("Test: Leave allocation [HR]", function (assert) {
 		() => frappe.set_route("List", "Leave Allocation", "List"),
 		() => frappe.new_doc("Leave Allocation"),
 		() => frappe.timeout(1),
-		() => frappe.db.get_value('Employee', {'employee_name':'Test Employee 1'}, 'name'),
-		(employee) => cur_frm.set_value("employee", employee.message.name),
+		() => {
+			frappe.db.get_value('Employee', {'employee_name':'Test Employee 1'}, 'name', function(r) {
+				cur_frm.set_value("employee", r.name)
+			});
+		},
+		() => frappe.timeout(1),
 		() => cur_frm.set_value("leave_type", "Test Leave type"),
 		() => cur_frm.set_value("to_date", frappe.datetime.add_months(today_date, 2)),	// for two months
 		() => cur_frm.set_value("description", "This is just for testing"),
@@ -30,7 +34,7 @@ QUnit.test("Test: Leave allocation [HR]", function (assert) {
 		() => assert.equal(today_date, cur_frm.doc.from_date,
 			"from date correctly set"),
 		// check for total leaves
-		() => assert.equal(cur_frm.doc.carry_forwarded_leaves + 2, cur_frm.doc.total_leaves_allocated,
+		() => assert.equal(cur_frm.doc.unused_leaves + 2, cur_frm.doc.total_leaves_allocated,
 			"total leave calculation is correctly set"),
 		() => done()
 	]);

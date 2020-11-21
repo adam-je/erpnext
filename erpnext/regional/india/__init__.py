@@ -1,3 +1,6 @@
+from __future__ import unicode_literals
+from six import iteritems
+
 states = [
  '',
  'Andaman and Nicobar Islands',
@@ -7,8 +10,7 @@ states = [
  'Bihar',
  'Chandigarh',
  'Chhattisgarh',
- 'Dadra and Nagar Haveli',
- 'Daman and Diu',
+ 'Dadra and Nagar Haveli and Daman and Diu',
  'Delhi',
  'Goa',
  'Gujarat',
@@ -47,8 +49,7 @@ state_numbers = {
  "Bihar": "10",
  "Chandigarh": "04",
  "Chhattisgarh": "22",
- "Dadra and Nagar Haveli": "26",
- "Daman and Diu": "25",
+ "Dadra and Nagar Haveli and Daman and Diu": "26",
  "Delhi": "07",
  "Goa": "30",
  "Gujarat": "24",
@@ -78,3 +79,5 @@ state_numbers = {
  "Uttarakhand": "05",
  "West Bengal": "19",
 }
+
+number_state_mapping = {v: k for k, v in iteritems(state_numbers)}

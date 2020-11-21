@@ -4,12 +4,24 @@
 		"node": true,
 		"es6": true
 	},
+	"parserOptions": {
+		"ecmaVersion": 9,
+		"sourceType": "module"
+	},
 	"extends": "eslint:recommended",
 	"rules": {
 		"indent": [
 			"error",
 			"tab",
 			{ "SwitchCase": 1 }
+		],
+		"brace-style": [
+			"error",
+			"1tbs"
+		],
+		"space-unary-ops": [
+			"error",
+			{ "words": true }
 		],
 		"linebreak-style": [
 			"error",
@@ -40,19 +52,17 @@
 		"no-control-regex": [
 			"off"
 		],
-		"spaced-comment": [
-			"warn"
-		],
-		"no-trailing-spaces": [
-			"warn"
-		]
+		"space-before-blocks": "warn",
+		"keyword-spacing": "warn",
+		"comma-spacing": "warn",
+		"key-spacing": "warn"
 	},
 	"root": true,
 	"globals": {
 		"frappe": true,
+		"Vue": true,
 		"erpnext": true,
-		"schools": true,
-
+		"hub": true,
 		"$": true,
 		"jQuery": true,
 		"moment": true,
@@ -132,6 +142,13 @@
 		"get_url_arg": true,
 		"get_server_fields": true,
 		"set_multiple": true,
-		"QUnit": true
+		"QUnit": true,
+		"Chart": true,
+		"Cypress": true,
+		"cy": true,
+		"it": true,
+		"context": true,
+		"before": true,
+		"beforeEach": true
 	}
 }
